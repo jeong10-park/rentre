@@ -97,7 +97,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .sent-legend-val{font-family:'DM Mono',monospace;color:var(--text);font-weight:500}
 
 .hot-section{margin-bottom:44px}
-.hot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.hot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
 .hot-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;cursor:pointer;transition:border-color .15s,transform .15s}
 .hot-card:hover{border-color:var(--border2);transform:translateY(-2px)}
 .hot-card.hidden{display:none}
@@ -109,7 +109,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .s-neu{background:rgba(255,183,64,0.12);color:var(--neu)}
 .s-meme{background:rgba(64,207,255,0.12);color:var(--meme)}
 .hot-title{font-size:14px;color:var(--text);line-height:1.55;margin-bottom:13px}
-.score-row{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.score-row{display:none}
 .score-label{font-size:11px;color:var(--text3);min-width:60px;font-family:'DM Mono',monospace}
 .score-bar{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px}
 .score-fill{height:100%;border-radius:2px}
@@ -117,9 +117,14 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .score-val{font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);min-width:28px;text-align:right;font-weight:500}
 .hot-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}
 .meta-item{font-size:12px;color:var(--text3)}
-.hot-channels{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.hot-channels{display:none}
 .ch-tag{font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--border);color:var(--text3);font-family:'DM Mono',monospace}
 .hot-tags{display:flex;gap:5px;flex-wrap:wrap}
+.sent-stack{height:28px;border-radius:6px;display:flex;overflow:hidden;margin-bottom:8px;gap:0}
+.sent-stack-pos{background:var(--pos);transition:width .3s;display:flex;align-items:center;justify-content:center}
+.sent-stack-neu{background:var(--neu);transition:width .3s;display:flex;align-items:center;justify-content:center}
+.sent-stack-neg{background:var(--neg);transition:width .3s;display:flex;align-items:center;justify-content:center}
+.sent-nums{display:flex;gap:6px;font-size:11px;font-family:'DM Mono',monospace;margin-bottom:4px}
 .feed-hash{font-size:11px;color:var(--accent);font-family:'DM Mono',monospace}
 
 .rising-section{margin-bottom:44px}
@@ -160,7 +165,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 @media(max-width:1100px){.sov-grid{grid-template-columns:1fr}}
 @media(max-width:900px){
-  .hot-grid{grid-template-columns:1fr 1fr}
+  .hot-grid{grid-template-columns:repeat(2,1fr)}
   .sent-grid{grid-template-columns:1fr 1fr}
   .feed-grid{grid-template-columns:1fr 1fr}
   .container{padding:0 16px 60px}
@@ -321,7 +326,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <script>
 // ── 브랜드 컬러 & 순서 ──────────────────────────────
-
 const BC = {
   '렌트리':    '#3b82f6',   // 렌트리 블루 (주인공)
   '아정당':    '#f97316',   // 오렌지
@@ -717,6 +721,7 @@ async function loadFeedFromSheets(){
 
     // ── 멀티브랜드 언급 제거 ──────────────────────────
     // 제목+요약에 서로 다른 브랜드가 2개 이상 등장하면 제외
+    
     const filteredItems=items.filter(item=>{
       const text=(item.제목+' '+item.내용요약);
       const uniqueCount=[
@@ -796,18 +801,19 @@ async function loadFeedFromSheets(){
       if(item.제목)hotMap[b].titles.push(item.제목);
       if(item.채널)hotMap[b].채널.add(item.채널.replace('네이버 ','').replace('카카오 ',''));
     });
-    const hotSorted=Object.values(hotMap).filter(h=>h.count>0&&BC[h.brand]).sort((a,b)=>b.count-a.count);
+    // 렌트리 첫번째, 나머지 버즈량 내림차순
+    const hotAll=Object.values(hotMap).filter(h=>h.count>0&&BC[h.brand]);
+    const hotMain=hotAll.filter(h=>h.brand==='렌트리');
+    const hotRest=hotAll.filter(h=>h.brand!=='렌트리').sort((a,b)=>b.count-a.count);
+    const hotSorted=[...hotMain,...hotRest];
     const hotGrid=document.getElementById('hotGrid');
     hotGrid.innerHTML='';
     hotSorted.forEach(h=>{
       const isMain=h.brand==='렌트리';
-      const domSent=h.pos>=h.neg?(h.pos>=h.neu?'긍정':'중립'):(h.neg>=h.neu?'부정':'중립');
-      const sc=domSent==='긍정'?'s-pos':domSent==='부정'?'s-neg':'s-neu';
-      const se=domSent==='긍정'?'🔥 긍정':domSent==='부정'?'💀 부정':'😐 중립';
-      const maxCount=hotSorted[0].count||1;
-      const score=Math.min(99,Math.round(h.count/maxCount*99));
-      const fillColor=domSent==='긍정'?'var(--pos)':domSent==='부정'?'var(--neg)':'var(--neu)';
-      const channels=[...h.채널].slice(0,4).map(c=>`<span class="ch-tag">${c}</span>`).join('');
+      const total=h.pos+h.neg+h.neu||1;
+      const posPct=Math.round(h.pos/total*100);
+      const neuPct=Math.round(h.neu/total*100);
+      const negPct=100-posPct-neuPct;
       const borderStyle=isMain?'border-color:rgba(59,130,246,0.3);':'';
       const brandLabel=isMain?h.brand+' ✦':h.brand;
       const brandColor=isMain?'color:var(--accent2)':'';
@@ -815,19 +821,16 @@ async function loadFeedFromSheets(){
         <div class="hot-card" data-brand="${h.brand}" style="${borderStyle}">
           <div class="hot-card-top">
             <span class="brand-tag" style="${brandColor}">${brandLabel}</span>
-            <span class="sent-badge ${sc}">${se}</span>
+            <span style="font-size:12px;color:var(--text2);font-family:'DM Mono',monospace">버즈량 <strong style="color:var(--text)">${h.count.toLocaleString()}</strong></span>
           </div>
-          <div class="score-row">
-            <span class="score-label">버즈량</span>
-            <div class="score-bar"><div class="score-fill" style="width:${score}%;background:${fillColor}"></div></div>
-            <span class="score-val">${h.count}</span>
+          <div style="margin-top:14px;height:28px;border-radius:6px;display:flex;overflow:hidden">
+            <div style="width:${posPct}%;background:var(--pos);display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'DM Mono',monospace;color:#fff;font-weight:600">${posPct>8?posPct+'%':''}</div>
+            <div style="width:${neuPct}%;background:var(--neu);display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'DM Mono',monospace;color:#fff;font-weight:600">${neuPct>8?neuPct+'%':''}</div>
+            <div style="width:${negPct}%;background:var(--neg);display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'DM Mono',monospace;color:#fff;font-weight:600">${negPct>8?negPct+'%':''}</div>
           </div>
-          <div class="hot-meta">
-            <span class="meta-item">🔥 긍정 ${h.pos}</span>
-            <span class="meta-item">💀 부정 ${h.neg}</span>
-            <span class="meta-item">😐 중립 ${h.neu}</span>
+          <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:8px">
+            긍정 ${h.pos.toLocaleString()} / 중립 ${h.neu.toLocaleString()} / 부정 ${h.neg.toLocaleString()}
           </div>
-          <div class="hot-channels">${channels}</div>
         </div>`;
     });
 
@@ -890,8 +893,8 @@ async function loadFeedFromSheets(){
       '서비스','이용','사용','신청','방법','경우','통해','위해','대한','관련','제공','운영',
       '시작','완료','확인','진행','처리','등록','변경','선택','설정','업데이트','출시',
       '내용','정보','안내','공지','발표','기준','통해서','기반','통합','지원','도입',
-      '렌탈','정수기','가전','제품','비교','견적','월','기간','약정','할인','설치','가격',
-      '앱','어플','플랫폼','가입','신청','관리','방문','자가','등록','비용','업체',
+      '렌탈','정수기','가전','제품','비교','견적','약정','할인','설치','가격',
+      '앱','어플','플랫폼','가입','신청','관리','방문','자가','등록','비용',
       '렌트리','아정당','렌탈프렌드','아라보아',
     ]);
     function stripJosa(w){
@@ -913,7 +916,7 @@ async function loadFeedFromSheets(){
           !/^https?/i.test(w) &&           // http/https 잔재 제거
           !/^www/i.test(w) &&              // www 잔재 제거
           !BRANDS.some(br=>w.includes(br)) && // 브랜드명 포함 단어 제거
-          !/^[a-zA-Z]+$/.test(w)           // 순수 영문 단어 제거 (rentre 노이즈 방지)
+          !/^[a-zA-Z]+$/.test(w)           // 순수 영문 제거 (rentre 프랑스어 노이즈 방지)
         );
       words.forEach(w=>{brandKwMap[b][w]=(brandKwMap[b][w]||0)+1;});
     });
